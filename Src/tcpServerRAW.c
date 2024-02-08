@@ -1,6 +1,9 @@
+#include "ip4_addr.h"
 #include "tcpRAW.h"
 #include "err.h"
 #include "lwip/tcp.h"
+
+extern struct tcp_pcb* tcpListeningPCB[];
 
 enum tcp_server_states
 {
@@ -24,22 +27,19 @@ static void tcp_server_error(void *arg, err_t err);
 static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb);
 static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len);
 static void tcp_server_send(struct tcp_pcb *tpcb, struct tcp_server_struct *es);
-static void tcp_server_connection_close(struct tcp_pcb *tpcb, struct tcp_server_struct *es);
 
 static void tcp_server_handle (struct tcp_pcb *tpcb, struct tcp_server_struct *es);
 
-void tcp_server_init(void)
-{
+struct tcp_pcb* tcp_server_init(ip4_addr_t* ip, u16_t port) {
 	struct tcp_pcb* tpcb = tcp_new();
-	ip_addr_t myIPADDR;
-	IP_ADDR4(&myIPADDR, 192, 168, 1, 101);
-	err_t err = tcp_bind(tpcb, &myIPADDR, 10);
+	err_t err = tcp_bind(tpcb, ip, port);
 	if (err == ERR_OK) {
 		tpcb = tcp_listen(tpcb);
 		tcp_accept(tpcb, tcp_server_accept);
 	} else {
 		memp_free(MEMP_TCP_PCB, tpcb);
 	}
+  return tpcb;
 }
 
 static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
@@ -55,6 +55,7 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
     tcp_recv(newpcb, tcp_server_recv);
     tcp_err(newpcb, tcp_server_error);
     tcp_poll(newpcb, tcp_server_poll, 0);
+    tcpListeningPCB[1] = newpcb;
     ret_err = ERR_OK;
   }
   else
@@ -65,6 +66,7 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
   return ret_err;
 }
 
+
 static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
   struct tcp_server_struct *es = (struct tcp_server_struct *)arg;
   err_t ret_err;
@@ -73,7 +75,7 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
   {
     es->state = ES_CLOSING;
     if(es->p == NULL) {
-       tcp_server_connection_close(tpcb, es);
+       tcp_server_connection_close(tpcb);
     } else {
       tcp_sent(tpcb, tcp_server_sent);
       tcp_server_send(tpcb, es);
@@ -134,9 +136,19 @@ static void tcp_server_send(struct tcp_pcb *tpcb, struct tcp_server_struct *es) 
   }
 }
 
-static void tcp_server_connection_close(struct tcp_pcb *tpcb, struct tcp_server_struct *es)
+void tcp_server_connection_close(struct tcp_pcb *tpcb)
 {
-  mem_free(es);
+  struct tcp_server_struct *es = (struct tcp_server_struct *)tpcb->callback_arg;
+  if(es != NULL){
+    mem_free(es);
+  }
+  tcp_accept(tpcb, NULL);
+  tcp_arg(tpcb, NULL);
+  tcp_sent(tpcb, NULL);
+  tcp_recv(tpcb, NULL);
+  tcp_err(tpcb, NULL);
+  tcp_poll(tpcb, NULL, 0);
+  
   tcp_close(tpcb);
 }
 

@@ -1,102 +1,56 @@
-/*
- * http_ssi.c
- *
- *  Created on: 11-Oct-2021
- *      Author: controllerstech
- */
-
-
-#include"http_ssi.h"
-#include "string.h"
-#include "stdio.h"
-
+#include "http_ssi.h"
+#include "tcpRAW.h"
 #include "lwip/tcp.h"
 #include "lwip/apps/httpd.h"
-
 #include "stm32f4xx_hal.h"
 
-int indx = 0;
-/* we will use character "x", "y","z" as tag for SSI */
-char const* TAGCHAR[]={"x", "y", "z"};
-char const** TAGS=TAGCHAR;
+static const char *Start_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
+static const char *Close_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
 
-uint16_t ssi_handler (int iIndex, char *pcInsert, int iInsertLen)
-{
-	switch (iIndex) {
-		case 0:
-			indx+=1;
-			sprintf(pcInsert, "%d", indx);
-			return strlen(pcInsert);
-			break;
-		case 1:
-			indx+=1;
-			sprintf(pcInsert, "%d", indx);
-			return strlen(pcInsert);
-			break;
-		case 2:
-			indx+=1;
-			sprintf(pcInsert, "%d", indx);
-			return strlen(pcInsert);
-			break;
-		default :
-			break;
-	}
+const tCGI START_FORM = {"/tcpServerStart.cgi", Start_Handler};
+const tCGI CLOSE_FORM = {"/tcpServerClose.cgi", Close_Handler};
+tCGI tcpCGIHandlersArray[2];
 
-	return 0;
+// each listening port contain 1 listening pcb and 1 for connected user
+struct tcp_pcb* tcpListeningPCB[2];
+
+//convert str to int
+int atoi(const char* str){
+	int res = 0;
+	for(u16_t i = 0; str[i] != '\0'; ++i){
+		if((str[i] >= '0') && (str[i] <= '9')){
+			res = res*10 + (str[i] - '0');
+		} else {
+			res = -1;
+			break;
+		}
+	}	
+	return res;
 }
 
-const char *CGIForm_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
-const char *CGILED_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
+static const char* Start_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
+	ip4_addr_t localIP;
+	int localPort;
 
-const tCGI FORM_CGI = {"/form.cgi", CGIForm_Handler};
-const tCGI LED_CGI = {"/led.cgi", CGILED_Handler};
-char name[30];
-tCGI CGI_TAB[2];
-
-const char *CGIForm_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
-{
-	if (iIndex == 0)
-	{
-		for (int i=0; i<iNumParams; i++)
-		{
-			if (strcmp(pcParam[i], "fname") == 0)  // if the fname string is found
-			{
-				memset(name, '\0', 30);
-				strcpy(name, pcValue[i]);
-			}
-
-			else if (strcmp(pcParam[i], "lname") == 0)  // if the fname string is found
-			{
-				strcat(name, " ");
-				strcat(name, pcValue[i]);
-			}
+	//extract the provided IP and Port
+	for (int i=0; i<iNumParams; i++) {
+		if (strcmp(pcParam[i], "ip") == 0) {
+			ip4addr_aton(pcValue[i], &localIP);
+		} else if (strcmp(pcParam[i], "port") == 0)	{
+			localPort = atoi(pcValue[i]);
 		}
 	}
-
+	if(localPort == -1){
+		return "/404.html";
+	}
+	tcpListeningPCB[0] = tcp_server_init(&localIP, localPort); // start TCP Server and save listening PCB
 	return "/cgipage.html";
 }
 
-
-const char *CGILED_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
-{
-	if (iIndex == 1)
-	{
-		for (int i=0; i<iNumParams; i++)
-		{
-			if (strcmp(pcParam[i], "fname") == 0)  // if the fname string is found
-			{
-				memset(name, '\0', 30);
-				strcpy(name, pcValue[i]);
-			}
-
-			else if (strcmp(pcParam[i], "lname") == 0)  // if the fname string is found
-			{
-				strcat(name, " ");
-				strcat(name, pcValue[i]);
-			}
-		}
-	}
-
+static const char* Close_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
+	tcp_server_connection_close(&tcpListeningPCB[1]); // stop TCP Server to accept new connections
+	tcp_server_connection_close(&tcpListeningPCB[0]); // stop TCP Server to accept new connections
+	// FIXME close already present connections
 	return "/cgipage.html";
 }
 
@@ -104,11 +58,7 @@ void http_server_init (void)
 {
 	httpd_init();
 
-	http_set_ssi_handler(ssi_handler, (char const**) TAGS, 3);
-
-	CGI_TAB[0] = FORM_CGI;
-	CGI_TAB[1] = LED_CGI;
-
-	http_set_cgi_handlers (&FORM_CGI, 1);
-	//http_set_cgi_handlers (CGI_TAB, 2);
+	tcpCGIHandlersArray[0] = START_FORM;
+	tcpCGIHandlersArray[1] = CLOSE_FORM;
+	http_set_cgi_handlers (tcpCGIHandlersArray, 2);
 }
