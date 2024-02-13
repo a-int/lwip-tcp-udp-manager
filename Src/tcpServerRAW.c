@@ -75,7 +75,7 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
   {
     es->state = ES_CLOSING;
     if(es->p == NULL) {
-       tcp_server_connection_close(tpcb);
+       tcp_connection_close(tpcb);
     } else {
       tcp_sent(tpcb, tcp_server_sent);
       tcp_server_send(tpcb, es);
@@ -134,20 +134,6 @@ static void tcp_server_send(struct tcp_pcb *tpcb, struct tcp_server_struct *es) 
     while(pbuf_free(ptr));
     tcp_recved(tpcb, plen);
   }
-}
-
-void tcp_server_connection_close(struct tcp_pcb *tpcb)
-{
-  struct tcp_server_struct *es = (struct tcp_server_struct *)tpcb->callback_arg;
-  if(es != NULL){
-    mem_free(es);
-  }
-  tcp_sent(tpcb, NULL);
-  tcp_recv(tpcb, NULL);
-  tcp_err(tpcb, NULL);
-  tcp_poll(tpcb, NULL, 0);
-  
-  tcp_close(tpcb);
 }
 
 static void tcp_server_handle(struct tcp_pcb *tpcb, struct tcp_server_struct *es)

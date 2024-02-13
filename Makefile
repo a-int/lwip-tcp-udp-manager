@@ -37,6 +37,7 @@ BUILD_DIR = build
 # C sources
 C_SOURCES =  \
 Src/http_ssi.c \
+Src/tcpRAW.c \
 Src/tcpClientRAW.c \
 Src/tcpServerRAW.c \
 Src/udpRAW.c \

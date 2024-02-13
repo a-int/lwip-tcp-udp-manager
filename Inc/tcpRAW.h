@@ -23,9 +23,8 @@
 #define INC_TCPSERVERRAW_H_
 
 struct tcp_pcb*  tcp_server_init(ip4_addr_t* ip, u16_t port);
-void tcp_client_init(void);
+struct tcp_pcb* tcp_client_init(ip4_addr_t* ip, u16_t port);
 
-void tcp_server_connection_close(struct tcp_pcb *tpcb);
-
+void tcp_connection_close(struct tcp_pcb *tpcb);
 
 #endif /* INC_TCPSERVERRAW_H_ */

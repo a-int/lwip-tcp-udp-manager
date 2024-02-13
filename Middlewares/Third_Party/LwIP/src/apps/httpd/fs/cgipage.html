@@ -17,5 +17,16 @@
     <input type="submit" value="Close TCP server">
 </form> 
 
+<form action="/tcpClientStart.cgi">
+  <label for="ip">IP:</label>
+  <input type="text" id="ip" name="ip" value=""><br>
+  
+  <label for="port">Port:</label>
+  <input type="number" id="port" name="port" value=""><br><br>
+  <input type="submit" value="Start TCP client">
+</form> 
+<form action="/tcpClientClose.cgi">  
+  <input type="submit" value="Close TCP client">
+</form> 
 </body>
 </html>

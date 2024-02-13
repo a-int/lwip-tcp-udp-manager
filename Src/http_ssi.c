@@ -7,12 +7,14 @@
 static const char *Start_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
 static const char *Close_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
 
-const tCGI START_FORM = {"/tcpServerStart.cgi", Start_Handler};
-const tCGI CLOSE_FORM = {"/tcpServerClose.cgi", Close_Handler};
+const tCGI TCP_SERVER_START_FORM = {"/tcpServerStart.cgi", Start_Handler};
+const tCGI TCP_SERVER_CLOSE_FORM = {"/tcpServerClose.cgi", Close_Handler};
+const tCGI TCP_CLIENT_START_FORM = {"/tcpClientStart.cgi", Start_Handler};
+const tCGI TCP_CLIENT_CLOSE_FORM = {"/tcpClientClose.cgi", Close_Handler};
 tCGI tcpCGIHandlersArray[2];
 
 // each listening port contain 1 listening pcb and 1 for connected user
-struct tcp_pcb* tcpListeningPCB[2];
+struct tcp_pcb* tcpListeningPCB[2] = {0};
 
 //convert str to int
 int atoi(const char* str){
@@ -43,13 +45,22 @@ static const char* Start_Handler(int iIndex, int iNumParams, char *pcParam[], ch
 	if(localPort == -1){
 		return "/404.html";
 	}
-	tcpListeningPCB[0] = tcp_server_init(&localIP, localPort); // start TCP Server and save listening PCB
+	
+	if(iIndex == 0){
+		tcpListeningPCB[0] = tcp_server_init(&localIP, localPort); // start TCP Server and save listening PCB
+	} else if(iIndex == 2){
+		tcpListeningPCB[0] = tcp_client_init(&localIP, localPort); // start TCP Client and save listening PCB	
+	}
 	return "/cgipage.html";
 }
 
 static const char* Close_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
-	tcp_server_connection_close(tcpListeningPCB[1]); // stop TCP Server to accept new connections
-	tcp_server_connection_close(tcpListeningPCB[0]); // stop TCP Server to accept new connections
+	// #FIXME correct comments [0] and [1] not always a server
+	// #FIXME replace 0 and 1 index with appropriate name
+	if(tcpListeningPCB[1] != NULL){
+		tcp_connection_close(tcpListeningPCB[1]); // stop TCP Server to accept new connections
+	}
+	tcp_connection_close(tcpListeningPCB[0]); // stop TCP Server to accept new connections
 	// FIXME close already present connections
 	return "/cgipage.html";
 }
@@ -58,7 +69,9 @@ void http_server_init (void)
 {
 	httpd_init();
 
-	tcpCGIHandlersArray[0] = START_FORM;
-	tcpCGIHandlersArray[1] = CLOSE_FORM;
-	http_set_cgi_handlers (tcpCGIHandlersArray, 2);
+	tcpCGIHandlersArray[0] = TCP_SERVER_START_FORM;
+	tcpCGIHandlersArray[1] = TCP_SERVER_CLOSE_FORM;
+	tcpCGIHandlersArray[2] = TCP_CLIENT_START_FORM;
+	tcpCGIHandlersArray[3] = TCP_CLIENT_CLOSE_FORM;
+	http_set_cgi_handlers (tcpCGIHandlersArray, 4);
 }

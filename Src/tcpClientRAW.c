@@ -3,6 +3,8 @@
 #include "err.h"
 #include "lwip/tcp.h"
 
+extern struct tcp_pcb* tcpListeningPCB[];
+
 enum tcp_client_states
 {
   ES_NONE = 0,
@@ -24,18 +26,13 @@ static void tcp_client_error(void *arg, err_t err);
 static err_t tcp_client_poll(void *arg, struct tcp_pcb *tpcb);
 static err_t tcp_client_sent(void *arg, struct tcp_pcb *tpcb, u16_t len);
 static void tcp_client_send(struct tcp_pcb *tpcb, struct tcp_client_struct *es);
-static void tcp_client_connection_close(struct tcp_pcb *tpcb, struct tcp_client_struct *es);
 static void tcp_client_handle (struct tcp_pcb *tpcb, struct tcp_client_struct *es);
 
-void tcp_client_init(void)
+struct tcp_pcb* tcp_client_init(ip_addr_t* ip, u16_t port)
 {
 	struct tcp_pcb* tpcb = tcp_new();
-	ip_addr_t myIPADDR;
-	IP_ADDR4(&myIPADDR, 192, 168, 1, 100);
-	err_t err = tcp_connect(tpcb, &myIPADDR, 30, tcp_client_connected);
-	// if (err != ERR_OK)
-	// 	memp_free(MEMP_TCP_PCB, tpcb);
-	// }
+	err_t err = tcp_connect(tpcb, ip, port, tcp_client_connected);
+  return tpcb;
 }
 
 static err_t tcp_client_connected(void *arg, struct tcp_pcb *newpcb, err_t err) {
@@ -51,6 +48,7 @@ static err_t tcp_client_connected(void *arg, struct tcp_pcb *newpcb, err_t err) 
     tcp_recv(newpcb, tcp_client_recv);
     tcp_err(newpcb, tcp_client_error);
     tcp_poll(newpcb, tcp_client_poll, 0);
+    tcpListeningPCB[1] = newpcb;
     ret_err = ERR_OK;
   }
   else
@@ -69,7 +67,7 @@ static err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
   {
     es->state = ES_CLOSING;
     if(es->p == NULL) {
-       tcp_client_connection_close(tpcb, es);
+       tcp_connection_close(tpcb);
     } else {
       tcp_sent(tpcb, tcp_client_sent);
       tcp_client_send(tpcb, es);
@@ -119,12 +117,6 @@ static void tcp_client_send(struct tcp_pcb *tpcb, struct tcp_client_struct *es) 
     while(pbuf_free(ptr));
     tcp_recved(tpcb, plen);
   }
-}
-
-static void tcp_client_connection_close(struct tcp_pcb *tpcb, struct tcp_client_struct *es)
-{
-  mem_free(es);
-  tcp_close(tpcb);
 }
 
 static void tcp_client_handle(struct tcp_pcb *tpcb, struct tcp_client_struct *es)
