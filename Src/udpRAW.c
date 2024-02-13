@@ -1,24 +1,3 @@
-/*
-  ***************************************************************************************************************
-  ***************************************************************************************************************
-  ***************************************************************************************************************
-
-  File:		  udpServerRAW.c
-  Author:     ControllersTech.com
-  Updated:    Jul 23, 2021
-
-  ***************************************************************************************************************
-  Copyright (C) 2017 ControllersTech.com
-
-  This is a free software under the GNU license, you can redistribute it and/or modify it under the terms
-  of the GNU General Public License version 3 as published by the Free Software Foundation.
-  This software library is shared with public for educational purposes, without WARRANTY and Author is not liable for any damages caused directly
-  or indirectly by this software, read more about this on the GNU General Public License.
-
-  ***************************************************************************************************************
-*/
-
-
 #include "err.h"
 #include "ip4_addr.h"
 #include "lwip/pbuf.h"
@@ -29,13 +8,10 @@
 
 void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 
-void udpServer_init(void){
+struct tcp_pcb* udp_server_init(ip4_addr_t* ip, u16_t port){
 	struct udp_pcb* pcb = udp_new();
 
-	ip4_addr_t ip;
-	IP_ADDR4(&ip, 192, 168, 1, 101);
-
-	err_t err = udp_bind(pcb, &ip, 7); // bind the IP and port for PCB
+	err_t err = udp_bind(pcb, ip, port); // bind the IP and port for PCB
 	if(err == ERR_OK){
 		udp_recv(pcb, udp_receive_callback, NULL); // assign callback function if received data
 	} else {
@@ -56,4 +32,10 @@ void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const
 	
 	pbuf_free(txbuffer); // free the allocated buffer
 	pbuf_free(p); // free the received data buffer
+}
+
+void udp_connection_close(struct tcp_pcb *tpcb){
+	udp_recv(tpcb, NULL, NULL); // remove recv callback
+	udp_disconnect(tpcb); // remove remote IP
+	udp_remove(tpcb);
 }

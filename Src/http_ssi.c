@@ -1,5 +1,9 @@
+// #FIXME correct comments [0] and [1] not always a server
+// #FIXME replace 0 and 1 index with appropriate name
+// #FIXME replace all magic numbers
 #include "http_ssi.h"
 #include "tcpRAW.h"
+#include "udpRAW.h"
 #include "lwip/tcp.h"
 #include "lwip/apps/httpd.h"
 #include "stm32f4xx_hal.h"
@@ -7,11 +11,16 @@
 static const char *Start_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
 static const char *Close_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
 
+
+#define numForms 6
 const tCGI TCP_SERVER_START_FORM = {"/tcpServerStart.cgi", Start_Handler};
 const tCGI TCP_SERVER_CLOSE_FORM = {"/tcpServerClose.cgi", Close_Handler};
 const tCGI TCP_CLIENT_START_FORM = {"/tcpClientStart.cgi", Start_Handler};
 const tCGI TCP_CLIENT_CLOSE_FORM = {"/tcpClientClose.cgi", Close_Handler};
-tCGI tcpCGIHandlersArray[2];
+const tCGI UDP_SERVER_START_FORM = {"/udpServerStart.cgi", Start_Handler};
+const tCGI UDP_SERVER_CLOSE_FORM = {"/udpServerClose.cgi", Close_Handler};
+
+tCGI tcpCGIHandlersArray[numForms];
 
 // each listening port contain 1 listening pcb and 1 for connected user
 struct tcp_pcb* tcpListeningPCB[2] = {0};
@@ -50,18 +59,22 @@ static const char* Start_Handler(int iIndex, int iNumParams, char *pcParam[], ch
 		tcpListeningPCB[0] = tcp_server_init(&localIP, localPort); // start TCP Server and save listening PCB
 	} else if(iIndex == 2){
 		tcpListeningPCB[0] = tcp_client_init(&localIP, localPort); // start TCP Client and save listening PCB	
+	} else if(iIndex == 4){
+		tcpListeningPCB[0] = udp_server_init(&localIP, localPort); // start TCP Server and save listening PCB
 	}
 	return "/cgipage.html";
 }
 
 static const char* Close_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
-	// #FIXME correct comments [0] and [1] not always a server
-	// #FIXME replace 0 and 1 index with appropriate name
-	if(tcpListeningPCB[1] != NULL){
-		tcp_connection_close(tcpListeningPCB[1]); // stop TCP Server to accept new connections
+	if(iIndex != 5){
+		if(tcpListeningPCB[1] != NULL){
+			tcp_connection_close(tcpListeningPCB[1]); // stop TCP Server to accept new connections
+		}
+		tcp_connection_close(tcpListeningPCB[0]); // stop TCP Server to accept new connections
+		// FIXME close already present connections
+	} else {
+		udp_connection_close(tcpListeningPCB[0]);
 	}
-	tcp_connection_close(tcpListeningPCB[0]); // stop TCP Server to accept new connections
-	// FIXME close already present connections
 	return "/cgipage.html";
 }
 
@@ -73,5 +86,7 @@ void http_server_init (void)
 	tcpCGIHandlersArray[1] = TCP_SERVER_CLOSE_FORM;
 	tcpCGIHandlersArray[2] = TCP_CLIENT_START_FORM;
 	tcpCGIHandlersArray[3] = TCP_CLIENT_CLOSE_FORM;
-	http_set_cgi_handlers (tcpCGIHandlersArray, 4);
+	tcpCGIHandlersArray[4] = UDP_SERVER_START_FORM;
+	tcpCGIHandlersArray[5] = UDP_SERVER_CLOSE_FORM;
+	http_set_cgi_handlers (tcpCGIHandlersArray, numForms);
 }
