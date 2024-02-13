@@ -142,8 +142,6 @@ void tcp_server_connection_close(struct tcp_pcb *tpcb)
   if(es != NULL){
     mem_free(es);
   }
-  tcp_accept(tpcb, NULL);
-  tcp_arg(tpcb, NULL);
   tcp_sent(tpcb, NULL);
   tcp_recv(tpcb, NULL);
   tcp_err(tpcb, NULL);

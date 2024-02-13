@@ -48,8 +48,8 @@ static const char* Start_Handler(int iIndex, int iNumParams, char *pcParam[], ch
 }
 
 static const char* Close_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
-	tcp_server_connection_close(&tcpListeningPCB[1]); // stop TCP Server to accept new connections
-	tcp_server_connection_close(&tcpListeningPCB[0]); // stop TCP Server to accept new connections
+	tcp_server_connection_close(tcpListeningPCB[1]); // stop TCP Server to accept new connections
+	tcp_server_connection_close(tcpListeningPCB[0]); // stop TCP Server to accept new connections
 	// FIXME close already present connections
 	return "/cgipage.html";
 }
