@@ -20,4 +20,4 @@ The project itself is tested on an stm32F407 with an ethernet connection via a l
 
 <img src="/pics/tcpServer.png" width="613" height="372"/>
 <img src="/pics/tcpClient.png" width="516" height="436"/>
-
+<img src="/pics/webpage.png" width="410" height="545"/>
