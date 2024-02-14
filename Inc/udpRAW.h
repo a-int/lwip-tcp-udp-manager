@@ -23,7 +23,7 @@
 #define INC_UDPSERVERRAW_H_
 
 
-struct tcp_pcb* udp_server_init(ip4_addr_t* ip, u16_t port);
-void udp_connection_close(struct tcp_pcb *tpcb);
+struct udp_pcb* udp_server_init(ip4_addr_t* remoteIP, u16_t remotePort, u16_t localPort);
+void udp_connection_close(struct udp_pcb *tpcb);
 
 #endif /* INC_UDPSERVERRAW_H_ */

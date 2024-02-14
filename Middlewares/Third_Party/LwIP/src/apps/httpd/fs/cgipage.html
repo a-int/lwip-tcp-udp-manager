@@ -48,12 +48,16 @@
   <input type="text" id="ip" name="ip" value=""><br>
   
   <label for="port">Port:</label>
-  <input type="number" id="port" name="port" value=""><br><br>
-  <input type="submit" value="Start UDP server">
+  <input type="number" id="port" name="port" value=""><br>
+  
+  <label for="localPort">Local port:</label>
+  <input type="number" id="localPort" name="localPort" value=""><br><br>
+  
+  <input type="submit" value="Listen">
 </form> 
 
 <form action="/udpServerClose.cgi">  
-  <input type="submit" value="Close UDP server">
+  <input type="submit" value="Stop">
 </form><br>
 
 <form action="/udpSendMessageServer.cgi">

@@ -5,6 +5,7 @@
 #include "tcpRAW.h"
 #include "udpRAW.h"
 #include "lwip/tcp.h"
+#include "lwip/udp.h"
 #include "lwip/apps/httpd.h"
 #include "stm32f4xx_hal.h"
 
@@ -38,6 +39,7 @@ tCGI tcpCGIHandlersArray[numForms];
 
 // each listening port contain 1 listening pcb and 1 for connected user
 struct tcp_pcb* tcpListeningPCB[2] = {0};
+struct udp_pcb* udpListeningPCB = NULL;
 
 //convert str to int
 int atoi(const char* str){
@@ -55,6 +57,7 @@ int atoi(const char* str){
 
 static const char* Start_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
 	ip4_addr_t localIP;
+	int remotePort;
 	int localPort;
 
 	//extract the provided IP and Port
@@ -62,21 +65,26 @@ static const char* Start_Handler(int iIndex, int iNumParams, char *pcParam[], ch
 		if (strcmp(pcParam[i], "ip") == 0) {
 			ip4addr_aton(pcValue[i], &localIP);
 		} else if (strcmp(pcParam[i], "port") == 0)	{
+			remotePort = atoi(pcValue[i]);
+		} else if (strcmp(pcParam[i], "localPort") == 0)	{
 			localPort = atoi(pcValue[i]);
 		}
 	}
-	if(localPort == -1){
+	if(remotePort == -1 || localPort == -1){
 		return "/404.html";
 	}
 	
 	if(iIndex == 0){
-		tcpListeningPCB[0] = tcp_server_init(&localIP, localPort); // start TCP Server and save listening PCB
+		tcpListeningPCB[0] = tcp_server_init(&localIP, remotePort); // start TCP Server and save listening PCB
 		st = TCP_SERVER;
 	} else if(iIndex == 2){
-		tcpListeningPCB[0] = tcp_client_init(&localIP, localPort); // start TCP Client and save listening PCB	
+		tcpListeningPCB[0] = tcp_client_init(&localIP, remotePort); // start TCP Client and save listening PCB	
 		st = TCP_CLIENT;
 	} else if(iIndex == 4){
-		tcpListeningPCB[0] = udp_server_init(&localIP, localPort); // start TCP Server and save listening PCB
+		if(udpListeningPCB != NULL){
+			udp_connection_close(udpListeningPCB);
+		}
+		udpListeningPCB = udp_server_init(&localIP, remotePort, localPort); // start TCP Server and save listening PCB
 		st = UDP_SERVER;
 	}
 	return "/cgipage.html";
@@ -90,19 +98,14 @@ static const char* Close_Handler(int iIndex, int iNumParams, char *pcParam[], ch
 		tcp_connection_close(tcpListeningPCB[0]); // stop TCP Server to accept new connections
 		// FIXME close already present connections
 	} else {
-		udp_connection_close(tcpListeningPCB[0]);
+		udp_connection_close(udpListeningPCB);
 	}
 	st = DEFAULT;
 	return "/cgipage.html";
 }
 
 static const char *Send_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]){
-	if ((iIndex == 7 && st == TCP_SERVER) || (iIndex == 8 && st == TCP_CLIENT)){
-		// create pbuf
-		// check if actual pcb is NULL or not
-		// if not chain new pbuf with provided message
-		// else assign newly created pbuf
-		// remove pbuf
+	if ((iIndex == 6 && st == TCP_SERVER) || (iIndex == 7 && st == TCP_CLIENT)){
 		if(tcpListeningPCB[1] != NULL){ // if the connection is established
 			u16_t len = strlen(pcValue[0]);
 			struct pbuf* newbuf = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_RAM);
@@ -116,12 +119,12 @@ static const char *Send_Handler(int iIndex, int iNumParams, char *pcParam[], cha
 				pbuf_chain(es->p, newbuf); // chain newly added buffer is there is data to be sent
 			}
 		}
-	} else if (iIndex == 9 && st == UDP_SERVER){
-		// create pbuf
-		// connect to remote ip to port
-		// send pbuf
-		// disconnect
-		// remove pbuf
+	} else if (iIndex == 8 && st == UDP_SERVER){
+		u16_t len = strlen(pcValue[0]);
+		struct pbuf* newbuf = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_RAM);
+		pbuf_take(newbuf, pcValue[0], len);
+		udp_send(udpListeningPCB, newbuf);
+		pbuf_free(newbuf);
 	} else { // else the none mode is initialized yet
 		return "/404.html";
 	}
@@ -138,8 +141,8 @@ void http_server_init (void) {
 	tcpCGIHandlersArray[3] = TCP_CLIENT_CLOSE_FORM;
 	tcpCGIHandlersArray[4] = UDP_SERVER_START_FORM;
 	tcpCGIHandlersArray[5] = UDP_SERVER_CLOSE_FORM;
-	tcpCGIHandlersArray[7] = TCP_SERVER_SEND_FORM;
-	tcpCGIHandlersArray[8] = TCP_CLIENT_SEND_FORM;
-	tcpCGIHandlersArray[9] = UDP_SERVER_SEND_FORM;
+	tcpCGIHandlersArray[6] = TCP_SERVER_SEND_FORM;
+	tcpCGIHandlersArray[7] = TCP_CLIENT_SEND_FORM;
+	tcpCGIHandlersArray[8] = UDP_SERVER_SEND_FORM;
 	http_set_cgi_handlers (tcpCGIHandlersArray, numForms);
 }
