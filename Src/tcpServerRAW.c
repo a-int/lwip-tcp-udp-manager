@@ -13,22 +13,14 @@ enum tcp_server_states
   ES_CLOSING
 };
 
-struct tcp_server_struct
-{
-  u8_t state;             /* current connection state */
-  struct tcp_pcb *pcb;    /* pointer on the current tcp_pcb */
-  struct pbuf *p;         /* pointer on the received/to be transmitted pbuf */
-};
-
 
 static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err);
 static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err);
 static void tcp_server_error(void *arg, err_t err);
 static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb);
 static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len);
-static void tcp_server_send(struct tcp_pcb *tpcb, struct tcp_server_struct *es);
 
-static void tcp_server_handle (struct tcp_pcb *tpcb, struct tcp_server_struct *es);
+static void tcp_server_handle (struct tcp_pcb *tpcb, struct tcp_connection_struct *es);
 
 struct tcp_pcb* tcp_server_init(ip4_addr_t* ip, u16_t port) {
 	struct tcp_pcb* tpcb = tcp_new();
@@ -44,8 +36,8 @@ struct tcp_pcb* tcp_server_init(ip4_addr_t* ip, u16_t port) {
 
 static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
   err_t ret_err;
-  struct tcp_server_struct *es;
-  es = (struct tcp_server_struct *)mem_malloc(sizeof(struct tcp_server_struct));
+  struct tcp_connection_struct *es;
+  es = (struct tcp_connection_struct *)mem_malloc(sizeof(struct tcp_connection_struct));
   if (es != NULL)
   {
     es->state = ES_ACCEPTED;
@@ -68,7 +60,7 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
 
 
 static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
-  struct tcp_server_struct *es = (struct tcp_server_struct *)arg;
+  struct tcp_connection_struct *es = (struct tcp_connection_struct *)arg;
   err_t ret_err;
 
   if (p == NULL)
@@ -78,7 +70,7 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
        tcp_connection_close(tpcb);
     } else {
       tcp_sent(tpcb, tcp_server_sent);
-      tcp_server_send(tpcb, es);
+      tcp_send(tpcb, es);
     }
     ret_err = ERR_OK;
   } else if(es->state == ES_ACCEPTED) {
@@ -103,7 +95,7 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
 }
 
 static void tcp_server_error(void *arg, err_t err) {
-  struct tcp_server_struct *es  = (struct tcp_server_struct *)arg;
+  struct tcp_connection_struct *es  = (struct tcp_connection_struct *)arg;
   if (es != NULL) {
     mem_free(es);
   }
@@ -114,34 +106,20 @@ static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb) {
 }
 
 static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
-  struct tcp_server_struct *es = (struct tcp_server_struct *)arg;
+  struct tcp_connection_struct *es = (struct tcp_connection_struct *)arg;
   if(es->p != NULL) {
     tcp_sent(tpcb, tcp_server_sent);
-    tcp_server_send(tpcb, es);
+    tcp_send(tpcb, es);
   }
   return ERR_OK;
 }
 
-static void tcp_server_send(struct tcp_pcb *tpcb, struct tcp_server_struct *es) {
-  while ((es->p != NULL) && (es->p->len <= tcp_sndbuf(tpcb))) {
-    struct pbuf *ptr = es->p;
-    u16_t plen = ptr->len;
-    tcp_write(tpcb, ptr->payload, ptr->len, TCP_WRITE_FLAG_COPY);
-    es->p = ptr->next;
-    if(es->p != NULL) {
-      pbuf_ref(es->p);
-    }
-    while(pbuf_free(ptr));
-    tcp_recved(tpcb, plen);
-  }
-}
-
-static void tcp_server_handle(struct tcp_pcb *tpcb, struct tcp_server_struct *es)
+static void tcp_server_handle(struct tcp_pcb *tpcb, struct tcp_connection_struct *es)
 {
 	char buf[30 + es->p->len];
 	int len = sprintf(buf, "%s+ Hello from TCP SERVER\n", (char *)es->p->payload);
 	es->p->payload = (void *)buf;
 	es->p->tot_len = (es->p->tot_len - es->p->len) + len;
 	es->p->len = len;
-	tcp_server_send(tpcb, es);
+	tcp_send(tpcb, es);
 }

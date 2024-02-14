@@ -16,7 +16,13 @@
 
 <form action="/tcpServerClose.cgi">  
     <input type="submit" value="Close TCP server">
-</form> 
+</form><br>
+
+<form action="/tcpSendMessageServer.cgi">
+  <label for="text">Text to send:</label>
+  <input type="text" id="text" name="text" value="">
+  <input type="submit" value="Send">
+</form><br><br>
 
 <form action="/tcpClientStart.cgi">
   <label for="ip">IP:</label>
@@ -29,7 +35,13 @@
 
 <form action="/tcpClientClose.cgi">  
   <input type="submit" value="Close TCP client">
-</form> 
+</form><br>
+
+<form action="/tcpSendMessageClient.cgi">
+  <label for="text">Text to send:</label>
+  <input type="text" id="text" name="text" value="">
+  <input type="submit" value="Send">
+</form><br><br>
 
 <form action="/udpServerStart.cgi">
   <label for="ip">IP:</label>
@@ -42,7 +54,13 @@
 
 <form action="/udpServerClose.cgi">  
   <input type="submit" value="Close UDP server">
-</form> 
+</form><br>
+
+<form action="/udpSendMessageServer.cgi">
+  <label for="text">Text to send:</label>
+  <input type="text" id="text" name="text" value="">
+  <input type="submit" value="Send">
+</form><br><br>
 
 </body>
 </html>
